@@ -1,6 +1,6 @@
 # Intro #
 # Creating Prompt.cpp #
-## Definint the struct ##
+## Defining the struct ##
 Defining a struct in rust is similar to C++, except that in rust, structs are private by default, so we need to declare it as public using the "pub" keyword.
 ```
 pub struct Prompt
