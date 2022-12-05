@@ -8,7 +8,7 @@ pub struct Prompt
 {
     user: String,
     user_time: DateTime<Local>,
-    path: PathBuf,
+    pub path: PathBuf,
 }
 
 impl Prompt
@@ -27,7 +27,7 @@ impl Prompt
     {
         let formatted_time = format!("{}", self.user_time.format("%d/%m %T"));
         let formatted_path = format!("{}", self.path.display());
-        print!("{0} {1}:{2}$", formatted_time.green(), self.user.green(), formatted_path.blue()); 
+        print!("{0} {1}:{2}$ ", formatted_time.green(), self.user.green(), formatted_path.blue()); 
     }   
 
     pub fn update(&mut self)
