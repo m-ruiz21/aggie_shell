@@ -4,7 +4,7 @@ Intro to rust, cargo, setting up, and the features of our aggie shell.
 ## Creating Prompt.cpp ##
 ### Defining the struct ###
 Defining a struct in Rust is similar to C++, except that in Rust, structs are private by default, so we need to declare it as public using the "pub" keyword.
-We're not going to dive into OOP with Rust, but for now, because of the default private nature of structs, we can think of structs in Rust more like classes in C++. 
+> Note: we're not going to dive into OOP with Rust, but for now, because of the default private nature of structs, we can think of structs in Rust more like classes in C++. 
 ```
 pub struct Prompt
 {
@@ -200,10 +200,9 @@ crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move curso
 let mut prompt = Prompt::new();
 prompt.print();
 ```
-This is our first encounter with the "mut" keyword. By default, all Rust variables are immutable.
-It's one of the ways that Rust encourages better and safer code. 
-We can override this thorugh the "mut" keyword. This way, we can change / update our prompt object.
-Now we can run our code and finally see our beautiful prompt show up!
+> This is our first encounter with the "mut" keyword. By default, all Rust variables are immutable. It's one of the ways that Rust encourages better and safer code. We can override this thorugh the "mut" keyword. This way, we can change / update our prompt object.
+
+Now that that's done, we can run our code and finally see our beautiful prompt show up!
 ```
 <show image here>
 ```
@@ -222,7 +221,7 @@ Command::new(cmd)
         .spawn()
         .expect("Failed to run command");
 ```
-Note unwrap() at the end of our Command constructor. The constructor returns an 
+> In C this would be equivalent of forking a child process and running execvp()
 Now we're able to run simple commands with no parameters like "ls" or "dir"!
 
 ### Accepting Arguments ###
@@ -238,15 +237,68 @@ Now, we have the cmd variable that only holds the command, and the args iterator
 let mut args = cmd.trim().split_whitespace();
 let cmd = args.next().unwrap(); 
 ```
-Note the unwrap() method. This is necessary because the .next() method returns an Option() object. 
-The Option type represents an optional value. It either holds Some() if it contains a value, or None() if it does not.
-In this case, next() would return None() if there was no next argument or a Some() object containing the value of our first element.
-This is a common pattern in Rust
+> Note the unwrap() method. This is necessary because the .next() method returns an Option() object. The Option type represents an optional value. It either holds Some() if it contains a value, or None() if it does not. In this case, next() would return None() if there was no next argument or a Some() object containing the value of our first element. This is a very common pattern in Rust for dealing with simple errors or functions that have an undetermined output for a certain input range.
+
+Now that we have collected our command and arguments, we only need to add the .args field and we'll be able to handle arguments.
+```
+Command::new(cmd)
+        .args(args)
+        .spawn()
+        .expect("Failed to run command");
+```
+
+### Running multiple commands ###
+We rarely use the shell to run just one command, so in this section we'll make sure that the shell runs until we close the program.
+In Rust, we can represent an infinite loop through:
+```
+loop { println!("doing this forever"); }
+```
+Adding our code into our infinite loop:
+```
+loop {
+    prompt.update();
+    prompt.print();
+    stdout().flush();
+
+    let mut input = String::new();
+    stdin().read_line(&mut input).unwrap();
+    
+    let mut args = input.trim().split_whitespace();
+    let cmd = parts.next().unwrap();
+
+    Command::new(command)
+        .args(args)
+        .spawn()
+        .unwrap();
+}
+```
+This solution works decently, but since we're creating a child process to run the command, it doesn't wait for our previous process to end before going onto the next iteration. 
+Lets make the parent wait on the child process before continuing:
+```
+let mut child = Command::new(command)
+    .spawn()
+    .unwrap();
+
+child.wait(); 
+```
+We're now left with a working basic shell.
+
+## Handling built in shell commands ##
+In this section, we're going to be handling the cd, clear, and exit commands. 
+
+### Exit ###
+### Clear ###
+### CD ###
+
+## Handling Output Redirection and Piping ##
+### Output redirection ###
+### Piping ###
 
 ## Sources ##
 rust documentation
 rust by example
 chrono documentation
 colored documentation
-[crossterm documentation] (https://docs.rs/crossterm/latest/crossterm/)
+[Crossterm Documentation] (https://docs.rs/crossterm/latest/crossterm/)
 path documentation
+[My Starting Point] (https://www.joshmcguigan.com/blog/build-your-own-shell-rust/)
