@@ -200,7 +200,16 @@ Now that we have our screen cleared and cursor in the right spot, lets make our 
     let mut prompt = Prompt::new();
     prompt.print();
 ```
-There's one more thing to note here: the "mut" keyword. We haven't quite worked with mutable variables, 
+This is our first encounter with the "mut" keyword. By default, all Rust variables are immutable.
+It's one of the ways that Rust encourages better and safer code. 
+We can override this thorugh the "mut" keyword. This way, we can change / update our prompt object.
+Now we can run our code and finally see our beautiful prompt show up!
+```
+<show image here>
+```
+
+### Taking In User Input and Run Basic Commands ##
+We can take in user input through the stdin.read_line() method. 
 
 ## Sources ##
 rust documentation
