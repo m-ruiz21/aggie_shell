@@ -185,7 +185,7 @@ crossterm = "0.23"
 ```
 Now, we can use the crossterm execute() method run the terminal::Clear() command in our terminal:
 ```
-    crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
+crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
 ```
 Running this results in our entire screen clearing our, but now our cursor is left at the very bottom! 
 So, we need to move back our cursor to the top before we can print out our prompt.
@@ -195,10 +195,10 @@ crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move curso
 ```
 Now that we have our screen cleared and cursor in the right spot, lets make our Prompt object and print:
 ```
-    crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
-    crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
-    let mut prompt = Prompt::new();
-    prompt.print();
+crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
+crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
+let mut prompt = Prompt::new();
+prompt.print();
 ```
 This is our first encounter with the "mut" keyword. By default, all Rust variables are immutable.
 It's one of the ways that Rust encourages better and safer code. 
@@ -209,7 +209,39 @@ Now we can run our code and finally see our beautiful prompt show up!
 ```
 
 ### Taking In User Input and Run Basic Commands ##
-We can take in user input through the stdin.read_line() method. 
+We can take in user input through the stdin.read_line(&String) method. It writes the stdin to the input string.
+So, lets create a new mutable string and give it the user input.
+```
+let mut input = String::new();    
+stdin().read_line(&mut input).expect("Did not enter a valid string");
+```
+Now that we have the user input, lets trim and run the command using the "Command" object from the process module.
+```
+let cmd = input.trim();
+Command::new(cmd)
+        .spawn()
+        .expect("Failed to run command");
+```
+Note unwrap() at the end of our Command constructor. The constructor returns an 
+Now we're able to run simple commands with no parameters like "ls" or "dir"!
+
+### Accepting Arguments ###
+Observe the following command:
+```
+cat dog.txt
+```
+If we want to run the "cat" command with the "dog.txt" parameter, we need to split the words using the whitespace, take the first word "cat" as the command, and the rest of the string "dog.txt" as the parameters.    
+To split the input, we can use the split_whitespace() method to split up the input. This returns an iterator for a collection of strings in our input. 
+So, lets use the next() method to return the first element of the collection, and move the iterator down to the next element.
+Now, we have the cmd variable that only holds the command, and the args iterator that now holds the rest of our input string (arguments to our given cmd).
+```
+let mut args = cmd.trim().split_whitespace();
+let cmd = args.next().unwrap(); 
+```
+Note the unwrap() method. This is necessary because the .next() method returns an Option() object. 
+The Option type represents an optional value. It either holds Some() if it contains a value, or None() if it does not.
+In this case, next() would return None() if there was no next argument or a Some() object containing the value of our first element.
+This is a common pattern in Rust
 
 ## Sources ##
 rust documentation
