@@ -285,6 +285,18 @@ We're now left with a working basic shell.
 
 ## Handling built in shell commands ##
 In this section, we're going to be handling the cd, clear, and exit commands. 
+We can handle all the cases using the match keyword. Below, we handle the "exit" and default case for now.
+```
+match cmd
+{
+    "exit" => uniplemented(),
+    _ => {
+        Command::new(command)
+            .args(args)
+            .spawn()
+            .unwrap();
+    }
+```
 
 ### Exit ###
 ### Clear ###
