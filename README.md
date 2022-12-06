@@ -276,6 +276,7 @@ This solution works decently, but since we're creating a child process to run th
 Lets make the parent wait on the child process before continuing:
 ```
 let mut child = Command::new(command)
+    .args(args)
     .spawn()
     .unwrap();
 
@@ -289,19 +290,40 @@ We can handle all the cases using the match keyword. Below, we handle the "exit"
 ```
 match cmd
 {
-    "exit" => uniplemented(),
+    "exit" => { todo!() };
     _ => {
-        Command::new(command)
+        let mut child = Command::new(command)
             .args(args)
             .spawn()
             .unwrap();
+        child.wait();
     }
 ```
+> Note: The todo!() macro simply indicates temporarily unfinished code, this way we can just the rest of the code without complaints.   
 
 ### Exit ###
-### Clear ###
-### CD ###
+Exit is straightforward to implmement, we'll simply print out our exit message and break out of the loop.
+```
+"exit" => {
+    prompt.exit_message();
+    break;
+}
+```
 
+### Clear ###
+For clear, we simply have to add the case and reuse our clear code from the beginning of our code.
+```
+"clear" => {  
+    crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
+    crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
+},
+```
+### CD ###
+The change of direction command is going to take a bit more thought. Here, wer're going to cover the cd (no args), cd <dir>, and cd - cases.
+
+#### cd and cd <dir> cases ####
+These two cases are the 
+    
 ## Handling Output Redirection and Piping ##
 ### Output redirection ###
 ### Piping ###
