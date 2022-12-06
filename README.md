@@ -395,17 +395,19 @@ Within our cd case handler, lets set the new path according to whether our new d
     if let Err(error) = env::set_current_dir(&new_path) { eprint!("{}", error); }
 },
 ```
-> Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the ownership in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.   
+> Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the ownership in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.    
 
 ## Handling Output Redirection and Piping ##
+To finish up our shell, we're going to add output redirection and piping.
+
 ### Output redirection ###
 ### Piping ###
 
 ## Sources ##
-rust documentation
-rust by example
-chrono documentation
-colored documentation
-[Crossterm Documentation] (https://docs.rs/crossterm/latest/crossterm/)
-path documentation
-[My Starting Point] (https://www.joshmcguigan.com/blog/build-your-own-shell-rust/)
+rust documentation  
+rust by example  
+chrono documentation  
+colored documentation    
+[Crossterm Documentation](https://docs.rs/crossterm/latest/crossterm/)  
+path documentation  
+[My Starting Point](https://www.joshmcguigan.com/blog/build-your-own-shell-rust/)  
