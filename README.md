@@ -88,7 +88,7 @@ impl Prompt
 ### Cleaning up our constructor: dealing with Result<> objects ### 
 If you try to compile this now, you'll get a warning that we're not doing anything with the std::result our functions are returning. An std::result is a type used for discovering and propogating erros. If your function returns a result, you can utalize the ? operator to handle and propogate the result. For example:
 ```
-    user = env::var("USER")?;
+user = env::var("USER")?;
 ```
 However, in any function that does not return a result, we can simply utalize the expect() method.
 This method allows us to handle any possible error and print out our prefered error message.
@@ -397,7 +397,7 @@ Within our cd case handler, lets set the new path according to whether our new d
 ```
 > Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the borrow/ownership system in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.    
 
-## Handling Output Redirection and Piping ##
+## Input / Output redirection ##
 To finish up our shell, we're going to add output redirection and piping.
 
 ### Output redirection ###
@@ -417,9 +417,57 @@ let args_it = if has_output { args_vec[0.. output_position.unwrap()].iter() } el
 The .position argument returns an Option objet to us, so we can use that option to determine if we have a given output / output file.
 Afterwards, we can use the boolean we got to determine if we're going to need an iterator of the entire arguments vector, or just a sub-array of our vector.
 
-Now that we have all of that settled, we can move on to our output redirection.
+Now we have the ability to check if we need to do file output redirection, and which file we will be redirecting our output to.
+
+Next, if we have file output, we need to create a file and set the stdout to be that file.
+```
+let stdout: Stdio; 
+if has_output 
+{
+    let file = File::create(args_vec[output_position.unwrap()+1])
+                    .expect("Failed to create file");
+    stdout = Stdio::from(file);
+}
+```
+The Stdio struct allows us to define the Stdio io of a child process when passed in to the stdin, stdout, or stderr methods of our Command struct. In this case, Stdio::from(file) converts our file to an Stdio object.
+
+So, all that's missing now is to add the stdout() method set our child output to our new file.
+```
+let child = Command::new(cmd)
+    .args(args_it)
+    .stdin(stdin)
+    .stdout(stdout)
+    .spawn();
+```
 
 ### Piping ###
+All that is left to do is add the piping functionality to our shell. This is going to require us to add some input redirection, and another case for our output redirection.
+
+First, we're going to have to first slit up our piped commands using the '|' character. Lets create a new peekable iterator that contains all of our commands and their arguments. 
+```
+loop
+{
+    ...
+    let mut cmds = input.trim().split(" | ").peekable();
+    ...
+}
+```
+> Note: this is going to be where or old cmd iterator was initiated 
+Further, lets loop through and run every command we're given, and initiate the args and cmd variables based on our current command:
+```
+let mut cmds = input.trim().split(" | ").peekable();
+while let Some(cmd) = cmds.next()
+{
+    let mut args = cmd.trim().split_whitespace();
+    let cmd = args.next().unwrap();  
+
+    match cmd 
+    {
+    ...
+    }
+}
+```
+> The "while let Some(cmd) = cmds.next() {}" is a common pattern in Rust, especially when using iterators. You can think of it as the Rust equivalent to C++'s "while cmds.next(){}" 
 
 ## Sources ##
 rust documentation  
