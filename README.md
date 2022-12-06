@@ -395,12 +395,30 @@ Within our cd case handler, lets set the new path according to whether our new d
     if let Err(error) = env::set_current_dir(&new_path) { eprint!("{}", error); }
 },
 ```
-> Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the ownership in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.    
+> Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the borrow/ownership system in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.    
 
 ## Handling Output Redirection and Piping ##
 To finish up our shell, we're going to add output redirection and piping.
 
 ### Output redirection ###
+Lets first try and see if we need to redirect our output. Lets create a vector from our iterator and find the position of the '>" character through the .position character.
+```
+let args_vec = args.clone().collect::<Vec<&str>>();
+let output_position = args.position(|x| x == ">");
+```
+Unfortunately, the .position() method moved our iterator. So, lets create a new iterator to represent our new-found arguments based on the args_vec and our ">" character position / existance.
+```
+let args_vec = args.clone().collect::<Vec<&str>>();
+let output_position = args.position(|x| x == ">");
+let has_output = (output_position != None) && (output_position.unwrap() < args_vec.len()); 
+
+let args_it = if has_output { args_vec[0.. output_position.unwrap()].iter() } else { args_vec.iter() };
+```
+The .position argument returns an Option objet to us, so we can use that option to determine if we have a given output / output file.
+Afterwards, we can use the boolean we got to determine if we're going to need an iterator of the entire arguments vector, or just a sub-array of our vector.
+
+Now that we have all of that settled, we can move on to our output redirection.
+
 ### Piping ###
 
 ## Sources ##
