@@ -106,7 +106,7 @@ pub fn new() -> Self
 ```
 
 ### Completing the print() Function ###
-What use is a prompt if we can't print it out? In this section, we're going to actually print our custom prompt. The format of our prompt will include all of our class variables in the order of 
+What use is a prompt if we can't print it out? In this section, we're going to actually print our custom prompt. The format of our prompt will include all of our class variables in the following order:
 ```
 {user_time (day/month time)} {user}: {path}$
 ```
@@ -266,7 +266,7 @@ loop {
     let mut args = input.trim().split_whitespace();
     let cmd = parts.next().unwrap();
 
-    Command::new(command)
+    Command::new(cmd)
         .args(args)
         .spawn()
         .unwrap();
@@ -275,12 +275,24 @@ loop {
 This solution works decently, but since we're creating a child process to run the command, it doesn't wait for our previous process to end before going onto the next iteration. 
 Lets make the parent wait on the child process before continuing:
 ```
-let mut child = Command::new(command)
+let mut child = Command::new(cmd)
     .args(args)
     .spawn()
     .unwrap();
 
 child.wait(); 
+``` 
+Furthermore, if we have any sort of error running the command, if we try to run a typo for example, our whole shell crashes. It would be better if we were to be able to get the shell to simply gracefully inform the user about the error.
+Since the .spawn() method returns a Result<()>, we can check the state of the child process to see if there is any error we need to intercept.
+```
+let mut child = Command::new(cmd)
+    .args(args)
+    .spawn();
+
+match child {
+    Ok(mut child) => { child.wait(); },
+    Err(error) => eprintln!("{}", error),
+};
 ```
 We're now left with a working basic shell.
 
@@ -292,11 +304,14 @@ match cmd
 {
     "exit" => { todo!() };
     _ => {
-        let mut child = Command::new(command)
+        let mut child = Command::new(cmd)
             .args(args)
-            .spawn()
-            .unwrap();
-        child.wait();
+            .spawn();
+
+        match child {
+            Ok(mut child) => { child.wait(); },
+            Err(error) => eprintln!("{}", error),
+        };
     }
 ```
 > Note: The todo!() macro simply indicates temporarily unfinished code, this way we can just the rest of the code without complaints.   
@@ -318,12 +333,70 @@ For clear, we simply have to add the case and reuse our clear code from the begi
     crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
 },
 ```
-### CD ###
-The change of direction command is going to take a bit more thought. Here, wer're going to cover the cd (no args), cd <dir>, and cd - cases.
+### cd ###
+The change of direction command is going to take a bit more thought. Here, wer're going to cover the "cd" (no args), "cd {dir}", and "cd -" cases.
 
-#### cd and cd <dir> cases ####
-These two cases are the 
-    
+First, lets tackle the "cd" and "cd {dir}" cases. These two cases are the easiest to implement since we don't have to consider any previous states of the system. 
+We can look at the next element ( our directory argument in this case ) without moving the iterator through the peek() function.
+```
+let new_dir = args.peekable().peek().unwrap();
+```
+> Note that we have to make the iterator "peekable" before we are able to peek().
+Now that we can check the new directory, we need to check if there is a new directory at all in the first place.
+We could check if new_dir is None(), but Rust offers a simpler solution that does the same thing: map_or().
+The map_or() method will return a default value if there is no contained value (peek() == None()), or apply a function to the contained function.
+So, we while we could write
+```
+if args.peekable.peek().is_some()       // if not "None()"
+{
+    new_dir = * args.peekable().peek().unwrap();
+}
+else
+{
+    new_dir = "/";
+}
+```
+we end up writing the equivalent
+```
+let new_dir = args.peekable().peek().map_or("/", |x| *x);
+```
+
+Now that we have our directory, we have to make a new Path() object and use it to set the current directory using the env::set_current_dir() method.
+```
+let new_path = Path::new(new_dir);
+env::set_current_dir(&new_path); 
+```
+Since env::set_current_dir returns a Result<()> object, we can use the same strategy as we did earlier with the command execution to make sure we alert the user gracefully if they gave us an invalid directory.
+```
+if let Err(error) = env::set_current_dir(&new_path) { eprint!("{}", error); }
+```
+
+Finally, we need to handle the "cd -" case. First, we need to create a prev_path variable to keep track of our previous directory. We can declare it before our loop.
+```
+let mut prev_path : String = prompt.path.clone()
+                                        .into_os_string()
+                                        .into_string()
+                                        .unwrap();
+```
+> Note that we're not just copying over the value and type casting it, we're "cloning" it. Because of Rust's borrowing system, we'd be borrowing the ownership of the prompt.path buffer and changing it. This would be equivalent to copying a reference in C++. We only want the value, so we're going to "clone" it so we have a variable exactly like our prompt.path variable that we can work with.   
+
+Within our cd case handler, lets set the new path according to whether our new directory is "-" or not, and lets update the prev_path at the very end.
+```
+"cd" => {
+    let new_dir = args.peekable().peek().map_or("/", |x| *x);
+    let prev_dir = prev_path.clone();                
+    let new_path = match new_dir 
+    {
+        "-" => Path::new(&prev_dir),
+        _ => Path::new(&new_dir), 
+    }; 
+
+    prev_path = prompt.path.clone().into_os_string().into_string().unwrap();
+    if let Err(error) = env::set_current_dir(&new_path) { eprint!("{}", error); }
+},
+```
+> Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the ownership in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.   
+
 ## Handling Output Redirection and Piping ##
 ### Output redirection ###
 ### Piping ###
