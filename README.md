@@ -1,6 +1,6 @@
 # System Programming in Rust By Example #
 ## Dependencies ##
-All we need to follow along is to install Rust, and have either wsl or a Linux machine.
+All we need to follow along is to install Rust and have either wsl or a Linux machine.
 To install Rust check out the [Rust installation guide](https://www.rust-lang.org/tools/install).
 
 ## Intro ##
