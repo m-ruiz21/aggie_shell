@@ -39,7 +39,7 @@ impl Prompt
         self.path = env::current_dir().expect("Failed to get current directory"); 
     }
 
-    pub fn exitMessage(&self)
+    pub fn exit_message(&self)
     {
         println!("{}", "Now exiting shell...\nGoodbye".red());
     }

@@ -1,9 +1,8 @@
 use crossterm::{terminal, terminal::ClearType, cursor};
 use std::io::{stdin, stdout, Write};
-use std::process::{Command, Child};
+use std::process::{Command, Child, Stdio};
 use std::path::Path;
 use std::env;
-use std::process::Stdio;
 use std::fs::File;
 
 mod prompt;
@@ -21,8 +20,7 @@ fn main()
     loop {
         prompt.update();
         prompt.print();
-        stdout().flush().expect("flush failed!");
-        
+        stdout().flush().expect("flush failed!");        
         
         let mut input = String::new();    
         stdin().read_line(&mut input).expect("Did not enter a valid string");
@@ -34,16 +32,14 @@ fn main()
         {
             let mut args = cmd.trim().split_whitespace();
             let cmd = args.next().unwrap();  
-            let args_vec = args.clone().collect::<Vec<&str>>();
 
             match cmd 
             {
                 "exit" => {
-                    prompt.exitMessage();
-                    break;
+                    prompt.exit_message();
+                    return;
                 },
-                "clear" => 
-                {  
+                "clear" => {  
                     crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
                     crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
 
@@ -72,17 +68,18 @@ fn main()
                                 );
                     
                     // set output
+                    let args_vec = args.clone().collect::<Vec<&str>>();
                     let output_position = args.position(|x| x == ">");
                     let has_output = (output_position != None) && (output_position.unwrap() < args_vec.len()); 
                     
-                    let mut args_it = args_vec.iter();
+                    let args_it = if has_output { args_vec[0.. output_position.unwrap()].iter() } else { args_vec.iter() };
+                    
                     let stdout: Stdio; 
                     if has_output 
                     {
                         let file = File::create(args_vec[output_position.unwrap()+1])
                                         .expect("Failed to create file");
                         stdout = Stdio::from(file);
-                        args_it = args_vec[0.. output_position.unwrap()].iter();              
                     }
                     else if cmds.peek().is_some()
                     {
@@ -94,14 +91,14 @@ fn main()
                     };
                     
                     let child = Command::new(cmd)
-                    .args(args_it)
-                    .stdin(stdin)
-                    .stdout(stdout)
-                    .spawn();
+                        .args(args_it)
+                        .stdin(stdin)
+                        .stdout(stdout)
+                        .spawn();
 
                     match child
                     {
-                        Ok(mut child) => { prev_cmd = Some(child); },
+                        Ok(child) => { prev_cmd = Some(child); },
                         Err(error) => { 
                             prev_cmd = None; 
                             eprintln!("{}", error); 
