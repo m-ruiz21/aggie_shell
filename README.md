@@ -1,7 +1,26 @@
 # System Programming in Rust By Example #
+## Dependencies ##
+All we need to follow along is to install Rust, and have either wsl or a Linux machine.
+To install Rust check out the [Rust installation guide](https://www.rust-lang.org/tools/install).
+
 ## Intro ##
-Intro to rust, cargo, setting up, and the features of our aggie shell. 
+Rust is the most loved language according to [ Stack Overflow's Developer Survey ](https://survey.stackoverflow.co/2022/) for its reliability, efficient compiler, memory safety, and high performance. For all of these reasons, Rust has risen in popularity, especially in System Programming. 
+This tutorial is made to serve as an instroduction to System Programming in Rust by building your own Linux shell. At the very end, our shell will be able to run basic commands, built-in shell commands like "cd", piping, and file output redirection.
+
+## Starting up ##
+To create our new Rust project called "aggie-shell":
+```
+cargo new hello_world
+```
+This is going to startup the default "hello world" Rust project.
+To run our new project:
+```
+cargo run
+```
+
 ## Creating Prompt.cpp ##
+Lets first create a new file responsible for giving us a pretty prompt for our user. 
+
 ### Defining the struct ###
 Defining a struct in Rust is similar to C++, except that in Rust, structs are private by default, so we need to declare it as public using the "pub" keyword.
 > Note: we're not going to dive into OOP with Rust, but for now, because of the default private nature of structs, we can think of structs in Rust more like classes in C++. 
@@ -414,8 +433,7 @@ let has_output = (output_position != None) && (output_position.unwrap() < args_v
 
 let args_it = if has_output { args_vec[0.. output_position.unwrap()].iter() } else { args_vec.iter() };
 ```
-The .position argument returns an Option objet to us, so we can use that option to determine if we have a given output / output file.
-Afterwards, we can use the boolean we got to determine if we're going to need an iterator of the entire arguments vector, or just a sub-array of our vector.
+The .position argument returns an Option objet to us, so we can use that option to determine if we have a given output / output file. Afterwards, we can use the boolean we got to determine if we're going to need an iterator of the entire arguments vector, or just a sub-array of our vector.
 
 Now we have the ability to check if we need to do file output redirection, and which file we will be redirecting our output to.
 
@@ -423,10 +441,14 @@ Next, if we have file output, we need to create a file and set the stdout to be 
 ```
 let stdout: Stdio; 
 if has_output 
-{
+
     let file = File::create(args_vec[output_position.unwrap()+1])
                     .expect("Failed to create file");
     stdout = Stdio::from(file);
+}
+else
+{
+    stdout = Stdio::inherit(); // our child stdout is going to inherit our parent stdout, which in this case is just the regular terminal stdout
 }
 ```
 The Stdio struct allows us to define the Stdio io of a child process when passed in to the stdin, stdout, or stderr methods of our Command struct. In this case, Stdio::from(file) converts our file to an Stdio object.
@@ -469,11 +491,274 @@ while let Some(cmd) = cmds.next()
 ```
 > The "while let Some(cmd) = cmds.next() {}" is a common pattern in Rust, especially when using iterators. You can think of it as the Rust equivalent to C++'s "while cmds.next(){}" 
 
+Now, lets get into our default command handler and pipe our stdout. We can achieve this by just adding new condition when setting the stdout: if there is another piped command left, we pipe our stdout. This can be done by simply calling Stdout::piped();
+```
+let stdout: Stdio; 
+if has_output 
+{
+    let file = File::create(args_vec[output_position.unwrap()+1])
+                    .expect("Failed to create file");
+    stdout = Stdio::from(file);
+}
+else if cmds.peek().is_some()
+{
+    stdout = Stdio::piped();
+}
+else 
+{
+    stdout = Stdio::inherit();
+};
+```
+Now, all that's left to handle is the input redirection. In order to pass the output of the previous command to the input of the current command, we need to know what the previous command is. So in our outer loop, before we enter our inner loop, lets declare the prev_cmd variable.
+```
+loop
+{
+    ...
+    let prev_cmd = None;
+    while let Some(cmd) = cmds.next() {}
+    ...
+}
+```
+Lets first consider the clear and cd cases. In both of these cases, there's no output. So, we can just set prev_cmd = None in both of these cases.
+```
+...
+"clear" => {  
+    crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
+    crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
+
+    prev_cmd = None;
+},
+"cd" => {
+    let new_dir = args.peekable().peek().map_or("/", |x| *x);
+    let prev_dir = prev_path.clone();                
+    let new_path = match new_dir 
+    {
+        "-" => Path::new(&prev_dir),
+        _ => Path::new(&new_dir), 
+    }; 
+
+    prev_path = prompt.path.clone().into_os_string().into_string().unwrap();
+    if let Err(error) = env::set_current_dir(&new_path) { eprint!("{}", error); }
+
+    prev_cmd = None;
+},
+...
+```
+Now, lets set the stdin for the default case. 
+We can use our trusty old map_or() method to see if there is a previous command, and if there is, lets get the stdout of that command. Otherwise, we'll just inherit the stdin from the parent ( the standard terminal stdin )
+Next, lets set it as our process' stdin by passing this new stdin to our Command constructor. 
+```
+let child = Command::new(cmd)
+    .args(args_it)
+    .stdin(stdin)
+    .stdout(stdout)
+    .spawn();
+```
+
+Since we no longer need to wait for every command and we need to collect the output of this current command for later use, we can edit our error handling to set the prev_cmd for us.
+```
+match child
+{
+    Ok(child) => { prev_cmd = Some(child); },
+    Err(error) => { 
+        prev_cmd = None; 
+        eprintln!("{}", error); 
+    }                    
+};
+```
+
+Finally, we can handle the last command once we leave our inner loop
+```
+if let Some(mut final_cmd) = prev_cmd { final_cmd.wait(); }
+```
+Now if you run "cargo run", you'll have your own Rust shell!
+If you want to learn more, I've included a list of references at the very bottom.
+You can check out the entire code in the github repo [here](https://github.com/m-ruiz21/aggie_shell) or below:
+
+**main.rs**:
+```
+use crossterm::{terminal, terminal::ClearType, cursor};
+use std::io::{stdin, stdout, Write};
+use std::process::{Command, Child, Stdio};
+use std::path::Path;
+use std::env;
+use std::fs::File;
+
+mod prompt;
+use crate::prompt::Prompt;
+
+fn main() 
+{
+    crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
+    crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
+    let mut prompt = Prompt::new();
+    let mut prev_path : String = prompt.path.clone()
+                                            .into_os_string()
+                                            .into_string()
+                                            .unwrap();
+    loop {
+        prompt.update();
+        prompt.print();
+        stdout().flush().expect("flush failed!");        
+        
+        let mut input = String::new();    
+        stdin().read_line(&mut input).expect("Did not enter a valid string");
+        
+        let mut cmds = input.trim().split(" | ").peekable();
+        let mut prev_cmd = None;
+        
+        while let Some(cmd) = cmds.next()
+        {
+            let mut args = cmd.trim().split_whitespace();
+            let cmd = args.next().unwrap();  
+
+            match cmd 
+            {
+                "exit" => {
+                    prompt.exit_message();
+                    return;
+                },
+                "clear" => {  
+                    crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect("Failed to clear terminal");
+                    crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect("Failed to move cursor to top");
+
+                    prev_cmd = None;
+                },
+                "cd" => {
+                    let new_dir = args.peekable().peek().map_or("/", |x| *x);
+                    let prev_dir = prev_path.clone();                
+                    let new_path = match new_dir 
+                    {
+                        "-" => Path::new(&prev_dir),
+                        _ => Path::new(&new_dir), 
+                    }; 
+                    
+                    prev_path = prompt.path.clone().into_os_string().into_string().unwrap();
+                    if let Err(error) = env::set_current_dir(&new_path) { eprint!("{}", error); }
+
+                    prev_cmd = None;
+                },
+                _ => {
+                    // set input
+                    let stdin = prev_cmd
+                                .map_or(
+                                    Stdio::inherit(), 
+                                    |output: Child| Stdio::from(output.stdout.unwrap())
+                                );
+                    
+                    // set output
+                    let args_vec = args.clone().collect::<Vec<&str>>();
+                    let output_position = args.position(|x| x == ">");
+                    let has_output = (output_position != None) && (output_position.unwrap() < args_vec.len()); 
+                    
+                    let args_it = if has_output { args_vec[0.. output_position.unwrap()].iter() } else { args_vec.iter() };
+                    
+                    let stdout: Stdio; 
+                    if has_output 
+                    {
+                        let file = File::create(args_vec[output_position.unwrap()+1])
+                                        .expect("Failed to create file");
+                        stdout = Stdio::from(file);
+                    }
+                    else if cmds.peek().is_some()
+                    {
+                        stdout = Stdio::piped();
+                    }
+                    else 
+                    {
+                        stdout = Stdio::inherit();
+                    };
+                    
+                    let child = Command::new(cmd)
+                        .args(args_it)
+                        .stdin(stdin)
+                        .stdout(stdout)
+                        .spawn();
+
+                    match child
+                    {
+                        Ok(child) => { prev_cmd = Some(child); },
+                        Err(error) => { 
+                            prev_cmd = None; 
+                            eprintln!("{}", error); 
+                        }                    
+                    };
+                }
+            }
+        }
+        if let Some(mut final_cmd) = prev_cmd { final_cmd.wait(); }
+    }
+}
+```
+
+**prompt.rs**
+```
+use std::env;
+use std::path::PathBuf;
+
+use chrono::{DateTime, Local};
+use colored::*;
+
+pub struct Prompt
+{
+    user: String,
+    user_time: DateTime<Local>,
+    pub path: PathBuf,
+}
+
+impl Prompt
+{
+    pub fn new() -> Self
+    {
+        Self 
+        {
+            user : env::var("USER").expect("$USER variable not declared"),    
+            user_time : Local::now(),
+            path : env::current_dir().expect("Failed to get current directory"), 
+        }
+    }
+    
+    pub fn print(&self)
+    {
+        let formatted_time = format!("{}", self.user_time.format("%d/%m %T"));
+        let formatted_path = format!("{}", self.path.display());
+        print!("{0} {1}:{2}$ ", formatted_time.green(), self.user.green(), formatted_path.blue()); 
+    }   
+
+    pub fn update(&mut self)
+    {
+        // update time
+        self.user_time = Local::now();
+        
+        // update path 
+        self.path = env::current_dir().expect("Failed to get current directory"); 
+    }
+
+    pub fn exit_message(&self)
+    {
+        println!("{}", "Now exiting shell...\nGoodbye".red());
+    }
+}
+```
+**cargo.toml**
+```
+[package]
+name = "aggie_shell"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4.23"
+colored = "2"
+crossterm = "0.23"
+```
+
 ## Sources ##
-rust documentation  
-rust by example  
-chrono documentation  
-colored documentation    
-[Crossterm Documentation](https://docs.rs/crossterm/latest/crossterm/)  
-path documentation  
+[Rust std library documentation](https://doc.rust-lang.org/std/index.html)  
+[Rust by example](https://doc.rust-lang.org/stable/rust-by-example/)  
+[Chrono documentation](https://docs.rs/chrono/latest/chrono/)  
+[Colored documentation](https://docs.rs/colored/latest/colored/)    
+[Crossterm Documentation](https://docs.rs/crossterm/latest/crossterm/)   
 [My Starting Point](https://www.joshmcguigan.com/blog/build-your-own-shell-rust/)  
