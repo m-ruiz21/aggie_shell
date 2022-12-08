@@ -7,7 +7,11 @@ To install Rust check out the [Rust installation guide](https://www.rust-lang.or
 Rust is the most loved language according to [ Stack Overflow's Developer Survey ](https://survey.stackoverflow.co/2022/) for its reliability, efficient compiler, memory safety, and high performance. For all of these reasons, Rust has risen in popularity, especially in System Programming. 
 This tutorial is made to serve as an instroduction to System Programming in Rust by building your own Linux shell. At the very end, our shell will be able to run basic commands, built-in shell commands like "cd", piping, and file output redirection.
 
+Before we begin, my code can be found at the bottom of this report and in my github repository [here](https://github.com/m-ruiz21/aggie_shell). The github repository also includes my original report written in markdown. If you're interested, the markdown to html converter I used is also included in the references section. 
+
 ## Starting up ##
+Cargo is Rust's package manager. It makes it really easy to start and manage projects. It will download and manage all of the packages / exterior libraries we'd like to import and compile our project as needed.
+
 To create our new Rust project called "aggie-shell":
 ```
 cargo new hello_world
@@ -573,7 +577,8 @@ if let Some(mut final_cmd) = prev_cmd { final_cmd.wait(); }
 ```
 Now if you run "cargo run", you'll have your own Rust shell!
 If you want to learn more, I've included a list of references at the very bottom.
-You can check out the entire code in the github repo [here](https://github.com/m-ruiz21/aggie_shell) or below:
+
+Here's our final result:
 
 **main.rs**:
 ```
@@ -762,3 +767,4 @@ crossterm = "0.23"
 [Colored documentation](https://docs.rs/colored/latest/colored/)    
 [Crossterm Documentation](https://docs.rs/crossterm/latest/crossterm/)   
 [My Starting Point](https://www.joshmcguigan.com/blog/build-your-own-shell-rust/)  
+[Markdown to HTML Website](https://markdowntohtml.com/)
