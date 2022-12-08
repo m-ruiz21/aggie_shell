@@ -7,14 +7,14 @@ To install Rust check out the [Rust installation guide](https://www.rust-lang.or
 Rust is the most loved language according to [ Stack Overflow's Developer Survey ](https://survey.stackoverflow.co/2022/) for its reliability, efficient compiler, memory safety, and high performance. For all of these reasons, Rust has risen in popularity, especially in System Programming. 
 This tutorial is made to serve as an instroduction to System Programming in Rust by building your own Linux shell. At the very end, our shell will be able to run basic commands, built-in shell commands like "cd", piping, and file output redirection.
 
-Before we begin, my code can be found at the bottom of this report and in my github repository [here](https://github.com/m-ruiz21/aggie_shell). The github repository also includes my original report written in markdown. If you're interested, the markdown to html converter and the CSS style sheet I used is also included in the references section. I did not write any html / css aside from the header, all credit goes to the wonderful people who created the open source tool and CSS stylesheet.
+Before we begin, my code can be found at the bottom of this report and in my github repository [here](https://github.com/m-ruiz21/aggie_shell). The github repository also includes my original report written in markdown. If you're interested, the markdown to html converter and the CSS style sheet I used is also included in the references section. I did not write any html / css aside from the header; all credit goes to the wonderful people who created the open source tool and CSS stylesheet.
 
 ## Starting up ##
 Cargo is Rust's package manager. It makes it really easy to start and manage projects. It will download and manage all of the packages / exterior libraries we'd like to import and compile our project as needed.
 
-To create our new Rust project called "aggie-shell":
+To create our new Rust project called "aggie_shell":
 ``` rust
-cargo new hello_world
+cargo new aggie_shell
 ```
 This is going to startup the default "hello world" Rust project.
 To run our new project:
