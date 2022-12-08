@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="styles.css">
+<style>
+	.markdown-body {
+		box-sizing: border-box;
+		min-width: 200px;
+		max-width: 980px;
+		margin: 0 auto;
+		padding: 45px;
+	}
+
+	@media (max-width: 767px) {
+		.markdown-body {
+			padding: 15px;
+		}
+	}
+</style>
+</head>
+
+<body class="markdown-body">
+    <h1 id="system-programming-in-rust-by-example">System Programming in Rust By Example</h1>
+    <h2 id="dependencies">Dependencies</h2>
+    <p>All we need to follow along is to install Rust and have either wsl or a Linux machine.
+    To install Rust check out the <a href="https://www.rust-lang.org/tools/install">Rust installation guide</a>.</p>
+    <h2 id="intro">Intro</h2>
+    <p>Rust is the most loved language according to <a href="https://survey.stackoverflow.co/2022/"> Stack Overflow&#39;s Developer Survey </a> for its reliability, efficient compiler, memory safety, and high performance. For all of these reasons, Rust has risen in popularity, especially in System Programming. 
+    This tutorial is made to serve as an instroduction to System Programming in Rust by building your own Linux shell. At the very end, our shell will be able to run basic commands, built-in shell commands like &quot;cd&quot;, piping, and file output redirection.</p>
+    <p>Before we begin, my code can be found at the bottom of this report and in my github repository <a href="https://github.com/m-ruiz21/aggie_shell">here</a>. The github repository also includes my original report written in markdown. If you&#39;re interested, the markdown to html converter and the CSS style sheet I used is also included in the references section. I did not write any html / css aside from the header, all credit goes to the wonderful people who created the open source tool and CSS stylesheet.</p>
+    <h2 id="starting-up">Starting up</h2>
+    <p>Cargo is Rust&#39;s package manager. It makes it really easy to start and manage projects. It will download and manage all of the packages / exterior libraries we&#39;d like to import and compile our project as needed.</p>
+    <p>To create our new Rust project called &quot;aggie-shell&quot;:</p>
+    <pre><code class="lang-rust">cargo <span class="hljs-keyword">new</span> hello_world
+    </code></pre>
+    <p>This is going to startup the default &quot;hello world&quot; Rust project.
+    To run our new project:</p>
+    <pre><code class="lang-rust">cargo <span class="hljs-keyword">run</span><span class="bash"></span>
+    </code></pre>
+    <h2 id="creating-prompt-cpp">Creating Prompt.cpp</h2>
+    <p>Lets first create a new file responsible for giving us a pretty prompt for our user. </p>
+    <h3 id="defining-the-struct">Defining the struct</h3>
+    <p>Defining a struct in Rust is similar to C++, except that in Rust, structs are private by default, so we need to declare it as public using the &quot;pub&quot; keyword.</p>
+    <blockquote>
+    <p>Note: we&#39;re not going to dive into OOP with Rust, but for now, because of the default private nature of structs, we can think of structs in Rust more like classes in C++. </p>
+    </blockquote>
+    <pre><code class="lang-rust">pub struct <span class="hljs-class">Prompt
+    </span>{
+    <span class="hljs-symbol">    user:</span> String,
+    <span class="hljs-symbol">    user_time:</span> DateTime<span class="hljs-params">&lt;Local&gt;</span>,
+    <span class="hljs-symbol">    path:</span> PathBuf,
+    }
+    </code></pre>
+    <p>Since this struct has a constructor and functions, we&#39;re also going to create an &quot;implementation&quot; of the struct. 
+    Implementations are where we put the functions that make up the class or struct. 
+    Within this implementation, we&#39;re going to add the print(), update(), and exit_message() class methods.</p>
+    <p>Now that we have the general structure of our class, we need to create its constructor.
+    Constructors in Rust are made by creating a public function called new(), which returns type &quot;Self&quot;.
+    We can innitialize our variables and their types here.
+    Note that class members in Rust are private by default. For that reason, we need to prefix all of our public function declerations with the &quot;pub&quot; keyword. </p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">impl</span> Prompt
+    {
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">new</span></span>() -&gt; <span class="hljs-keyword">Self</span>
+        {
+            <span class="hljs-keyword">Self</span> 
+            {
+                user : <span class="hljs-comment">// initalize user here,    </span>
+                user_time : <span class="hljs-comment">// initialize user_time path,</span>
+                path : <span class="hljs-comment">// initialize path here, </span>
+            }
+        }
+    }
+    </code></pre>
+    <h3 id="working-with-environment-variables-in-rust">Working with environment variables in Rust</h3>
+    <p>The Rust standard library includes an enviroment module that allows us manipulate and inspect the enviroment variables of our machine. We will use this module to get our user and path.
+    The enviornment module comes with a built in current_dir() function, which allows us to get the directory as PathBuf object (similar to a String).
+    For the user, however, we need to use the &quot;var&quot; function. The environment variables in Rust are stored as key value pairs. So the var function takes it a key (the name of the environemnt variable), and returns to us the value of our environment variable.  </p>
+    <p>Applying this to our constructor:</p>
+    <pre><code class="lang-rust">    
+    <span class="hljs-keyword">impl</span> Prompt
+    {
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">new</span></span>() -&gt; <span class="hljs-keyword">Self</span>
+        {
+            <span class="hljs-keyword">Self</span> 
+            {
+                user : env::var(<span class="hljs-string">"USER"</span>),    
+                user_time : <span class="hljs-comment">// initialize ,</span>
+                path : env::current_dir(), 
+            }
+        }
+    }
+    </code></pre>
+    <h3 id="time-in-rust">Time in Rust</h3>
+    <p>To get the current system time, we can use the chrono module. Since this is an external dependency, we have to edit our cargo.toml.<br>Under dependencies:</p>
+    <pre><code class="lang-rust"><span class="hljs-attr">chrono</span> = <span class="hljs-string">"0.4.23"</span>
+    </code></pre>
+    <p>This way, the next time we run &quot;cargo run&quot;, cargo will download version 0.4.23 of chrono.<br>Now that we have chrono, we can import DateTime and Local module to get the local datetime.</p>
+    <p>Finishing up our constructor:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">impl</span> Prompt
+    {
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">new</span></span>() -&gt; <span class="hljs-keyword">Self</span>
+        {
+            <span class="hljs-keyword">Self</span> 
+            {
+                user : env::var(<span class="hljs-string">"USER"</span>),    
+                user_time :  Local::now(),
+                path : env::current_dir(), 
+            }
+        }
+    }
+    </code></pre>
+    <h3 id="cleaning-up-our-constructor-dealing-with-result-objects">Cleaning up our constructor: dealing with Result&lt;&gt; objects</h3>
+    <p>If you try to compile this now, you&#39;ll get a warning that we&#39;re not doing anything with the std::result our functions are returning. An std::result is a type used for discovering and propogating erros. If your function returns a result, you can utalize the ? operator to handle and propogate the result. For example:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">user</span> <span class="hljs-title">= env</span>::var(<span class="hljs-string">"USER"</span>)?;
+    </code></pre>
+    <p>However, in any function that does not return a result, we can simply utalize the expect() method.
+    This method allows us to handle any possible error and print out our prefered error message.
+    Applying this to our constructor:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">new</span></span>() -&gt; <span class="hljs-keyword">Self</span>
+    {
+        <span class="hljs-keyword">Self</span> 
+        {
+            user : env::var(<span class="hljs-string">"USER"</span>).expect(<span class="hljs-string">"$USER variable not declared"</span>),    
+            user_time : Local::now(),
+            path : env::current_dir().expect(<span class="hljs-string">"Failed to get current directory"</span>), 
+        }
+    }
+    </code></pre>
+    <h3 id="completing-the-print-function">Completing the print() Function</h3>
+    <p>What use is a prompt if we can&#39;t print it out? In this section, we&#39;re going to actually print our custom prompt. The format of our prompt will include all of our class variables in the following order:</p>
+    <pre><code class="lang-rust">{user_time (<span class="hljs-built_in">day</span>/<span class="hljs-built_in">month</span> <span class="hljs-built_in">time</span>)} {user}: {path}$
+    </code></pre>
+    <p>Like our terminal, our user time and user name will be colored in green, and our path will be colored in blue. 
+    We will do the coloring using the colored library. We can import it by pasting the following line in cargo.toml:</p>
+    <pre><code class="lang-rust"><span class="hljs-attr">colored</span> = <span class="hljs-string">"2"</span>
+    </code></pre>
+    <p>First things first, we have to set our time in our prefered format. 
+    Unfortunately, our path and user_time have their respective display / format methods, they do not return a string object.
+    This is an issue because the colored library only works for string literals. 
+    So, we will first need to convert our variables into formatted strings before we can color them and print them out.
+    For this, we can use the built in format!() macro that takes in a format string ( a string literal containing &quot;{}&quot;) and the format string parameters (which will replace our &quot;{}&quot; strings), and returns our formatted string.
+    For our user_time, we can use the built in .format() method to give us our formatted time, and for the path, we can simply call the .display() method.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">print</span></span>(&amp;<span class="hljs-keyword">self</span>)
+    {
+        <span class="hljs-keyword">let</span> formatted_time = <span class="hljs-built_in">format!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">self</span>.user_time.format(<span class="hljs-string">"%d/%m %T"</span>));
+        <span class="hljs-keyword">let</span> formatted_path = <span class="hljs-built_in">format!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">self</span>.path.display());
+    }
+    </code></pre>
+    <p>Note that we have to import self for all class methods (similar to Python). 
+    From here, we just need to print our a formatted string with our colored format parameters:</p>
+    <pre><code class="lang-rust">print!(<span class="hljs-string">"{0} {1}:{2}$ "</span>, formatted_time.green(), self.user.green(), formatted_path.blue())<span class="hljs-comment">;</span>
+    </code></pre>
+    <p>That will give us the final method:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">print</span></span>(&amp;<span class="hljs-keyword">self</span>)
+    {
+        <span class="hljs-keyword">let</span> formatted_time = <span class="hljs-built_in">format!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">self</span>.user_time.format(<span class="hljs-string">"%d/%m %T"</span>));
+        <span class="hljs-keyword">let</span> formatted_path = <span class="hljs-built_in">format!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">self</span>.path.display());
+        <span class="hljs-built_in">print!</span>(<span class="hljs-string">"{0} {1}:{2}$ "</span>, formatted_time.green(), <span class="hljs-keyword">self</span>.user.green(), formatted_path.blue()); 
+    }
+    </code></pre>
+    <h3 id="completing-the-update-function">Completing the update() Function</h3>
+    <p>Next, our prompt needs to be able to update as the time / directory changes. 
+    To do this, we can simply call the same methods we did to initialize our variables in the constructor.
+    That wil give us the final method:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">update</span></span>(&amp;<span class="hljs-keyword">mut</span> <span class="hljs-keyword">self</span>)
+    {
+        <span class="hljs-comment">// update time</span>
+        <span class="hljs-keyword">self</span>.user_time = Local::now();
+
+        <span class="hljs-comment">// update path </span>
+        <span class="hljs-keyword">self</span>.path = env::current_dir().expect(<span class="hljs-string">"Failed to get current directory"</span>); 
+    }
+    </code></pre>
+    <h3 id="completing-the-exitmessage-function">Completing the exitMessage() function</h3>
+    <p>Finally, we want to say goodbye to the user whenever they are exiting the shell.
+    For this, we can just println! our message in red using the colored library.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">exit_message</span></span>(&amp;<span class="hljs-keyword">self</span>)
+    {
+        <span class="hljs-built_in">println!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-string">"Now exiting shell...\nGoodbye"</span>.red());
+    }
+    </code></pre>
+    <h2 id="getting-started-with-main-rs">Getting started with main.rs</h2>
+    <h3 id="importing-our-struct">Importing our Struct</h3>
+    <p>Returning back to the main.rs file, we can import our struct into our main.rs by declaring the module and importing it as a crate. 
+    By declaring it in our main.rs file, we can link our prompt.rs &quot;libray&quot; with our main code.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">mod</span> prompt;
+    <span class="hljs-keyword">use</span> crate::prompt::Prompt;
+    </code></pre>
+    <h3 id="clearing-the-screen-and-prompting-the-user">Clearing the Screen and Prompting the User</h3>
+    <p>Now that we can finally declare a new Prompt object and use it in our main.rs function, let&#39;s clear our screen and print our prompt.
+    To clear our screen we can use crossterm, a terminal library for Rust.
+    We can import it by pasting the following to Cargo.toml:</p>
+    <pre><code class="lang-rust"><span class="hljs-attr">crossterm</span> = <span class="hljs-string">"0.23"</span>
+    </code></pre>
+    <p>Now, we can use the crossterm execute() method run the terminal::Clear() command in our terminal:</p>
+    <pre><code class="lang-rust">crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect(<span class="hljs-string">"Failed to clear terminal"</span>);
+    </code></pre>
+    <p>Running this results in our entire screen clearing our, but now our cursor is left at the very bottom! 
+    So, we need to move back our cursor to the top before we can print out our prompt.
+    We can do this by using the execute() method again to call the cursor::MoveTo() method:</p>
+    <pre><code class="lang-rust">crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect(<span class="hljs-string">"Failed to move cursor to top"</span>);
+    </code></pre>
+    <p>Now that we have our screen cleared and cursor in the right spot, lets make our Prompt object and print:</p>
+    <pre><code class="lang-rust">crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect(<span class="hljs-string">"Failed to clear terminal"</span>);
+    crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect(<span class="hljs-string">"Failed to move cursor to top"</span>);
+    let mut prompt = Prompt::<span class="hljs-keyword">new</span>();
+    prompt.print();
+    </code></pre>
+    <blockquote>
+    <p>This is our first encounter with the &quot;mut&quot; keyword. By default, all Rust variables are immutable. It&#39;s one of the ways that Rust encourages better and safer code. We can override this thorugh the &quot;mut&quot; keyword. This way, we can change / update our prompt object.</p>
+    </blockquote>
+    <p>Now that that&#39;s done, we can run our code and finally see our beautiful prompt show up!</p>
+    <img src="img.PNG"></img>
+    <h3 id="taking-in-user-input-and-run-basic-commands">Taking In User Input and Run Basic Commands</h3>
+    <p>We can take in user input through the stdin.read_line(&amp;String) method. It writes the stdin to the input string.
+    So, lets create a new mutable string and give it the user input.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">let</span> mut input = <span class="hljs-type">String</span>::<span class="hljs-function"><span class="hljs-keyword">new</span>();    
+    <span class="hljs-title">stdin</span>().<span class="hljs-title">read_line</span>(&amp;mut input).<span class="hljs-title">expect</span>("<span class="hljs-type">Did</span> not enter a valid string");</span>
+    </code></pre>
+    <p>Now that we have the user input, lets trim and run the command using the &quot;Command&quot; object from the process module.</p>
+    <pre><code class="lang-rust">let <span class="hljs-keyword">cmd</span><span class="bash"> = input.trim();
+    </span>Command::new(<span class="hljs-keyword">cmd</span><span class="bash">)
+    </span>        .spawn()
+            .expect(<span class="hljs-string">"Failed to run command"</span>);
+    </code></pre>
+    <blockquote>
+    <p>In C this would be equivalent of forking a child process and running execvp()
+    Now we&#39;re able to run simple commands with no parameters like &quot;ls&quot; or &quot;dir&quot;!</p>
+    </blockquote>
+    <h3 id="accepting-arguments">Accepting Arguments</h3>
+    <p>Observe the following command:</p>
+    <pre><code class="lang-bash"><span class="hljs-selector-tag">cat</span> <span class="hljs-selector-tag">dog</span><span class="hljs-selector-class">.txt</span>
+    </code></pre>
+    <p>If we want to run the &quot;cat&quot; command with the &quot;dog.txt&quot; parameter, we need to split the words using the whitespace, take the first word &quot;cat&quot; as the command, and the rest of the string &quot;dog.txt&quot; as the parameters.<br>To split the input, we can use the split_whitespace() method to split up the input. This returns an iterator for a collection of strings in our input. 
+    So, lets use the next() method to return the first element of the collection, and move the iterator down to the next element.
+    Now, we have the cmd variable that only holds the command, and the args iterator that now holds the rest of our input string (arguments to our given cmd).</p>
+    <pre><code class="lang-rust">let mut args = <span class="hljs-keyword">cmd</span>.<span class="bash">trim().split_whitespace();
+    </span>let <span class="hljs-keyword">cmd</span><span class="bash"> = args.next().unwrap();</span>
+    </code></pre>
+    <blockquote>
+    <p>Note the unwrap() method. This is necessary because the .next() method returns an Option() object. The Option type represents an optional value. It either holds Some() if it contains a value, or None() if it does not. In this case, next() would return None() if there was no next argument or a Some() object containing the value of our first element. This is a very common pattern in Rust for dealing with simple errors or functions that have an undetermined output for a certain input range.</p>
+    </blockquote>
+    <p>Now that we have collected our command and arguments, we only need to add the .args field and we&#39;ll be able to handle arguments.</p>
+    <pre><code class="lang-rust">Command::<span class="hljs-keyword">new</span>(cmd)
+            .<span class="hljs-keyword">args</span>(args)
+            .spawn()
+            .expect(<span class="hljs-string">"Failed to run command"</span>);
+    </code></pre>
+    <h3 id="running-multiple-commands">Running multiple commands</h3>
+    <p>We rarely use the shell to run just one command, so in this section we&#39;ll make sure that the shell runs until we close the program.
+    In Rust, we can represent an infinite loop through:</p>
+    <pre><code class="lang-rust"><span class="hljs-built_in">loop</span> { <span class="hljs-built_in">println</span>!(<span class="hljs-string">"doing this forever"</span>); }
+    </code></pre>
+    <p>Adding our code into our infinite loop:</p>
+    <pre><code class="lang-rust">loop {
+        <span class="hljs-built_in">prompt</span>.update();
+        <span class="hljs-built_in">prompt</span>.<span class="hljs-built_in">print</span>();
+        stdout().<span class="hljs-built_in">flush</span>();
+
+        <span class="hljs-built_in">let</span> mut input = String::<span class="hljs-built_in">new</span>();
+        stdin().read_line(&amp;mut input).unwrap();
+
+        <span class="hljs-built_in">let</span> mut <span class="hljs-built_in">args</span> = input.trim().split_whitespace();
+        <span class="hljs-built_in">let</span> cmd = parts.next().unwrap();
+
+        Command::<span class="hljs-built_in">new</span>(cmd)
+            .<span class="hljs-built_in">args</span>(<span class="hljs-built_in">args</span>)
+            .spawn()
+            .unwrap();
+    }
+    </code></pre>
+    <p>This solution works decently, but since we&#39;re creating a child process to run the command, it doesn&#39;t wait for our previous process to end before going onto the next iteration. 
+    Lets make the parent wait on the child process before continuing:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">let</span> mut child = <span class="hljs-type">Command</span>::<span class="hljs-function"><span class="hljs-keyword">new</span>(cmd)
+        .<span class="hljs-title">args</span>(args)
+        .<span class="hljs-title">spawn</span>()
+        .<span class="hljs-title">unwrap</span>();
+
+    <span class="hljs-title">child</span>.<span class="hljs-title">wait</span>();</span>
+    </code></pre>
+    <p>Furthermore, if we have any sort of error running the command, if we try to run a typo for example, our whole shell crashes. It would be better if we were to be able to get the shell to simply gracefully inform the user about the error.
+    Since the .spawn() method returns a Result&lt;()&gt;, we can check the state of the child process to see if there is any error we need to intercept.</p>
+    <pre><code class="lang-rust">let mut child = Command::<span class="hljs-keyword">new</span>(cmd)
+        .<span class="hljs-keyword">args</span>(args)
+        .spawn();
+
+    match child {
+        Ok(mut child) =&gt; { child.wait(); },
+        Err(<span class="hljs-keyword">error</span>) =&gt; eprintln!(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">error</span>),
+    };
+    </code></pre>
+    <p>We&#39;re now left with a working basic shell.</p>
+    <h2 id="handling-built-in-shell-commands">Handling built in shell commands</h2>
+    <p>In this section, we&#39;re going to be handling the cd, clear, and exit commands. 
+    We can handle all the cases using the match keyword. Below, we handle the &quot;exit&quot; and default case for now.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">match</span> cmd
+    {
+        <span class="hljs-string">"exit"</span> =&gt; { todo!() };
+        <span class="hljs-keyword">_</span> =&gt; {
+            <span class="hljs-keyword">let</span> mut child = Command::new(cmd)
+                .args(args)
+                .spawn();
+
+            <span class="hljs-keyword">match</span> child {
+                Ok(mut child) =&gt; { child.wait(); },
+                Err(error) =&gt; eprintln!(<span class="hljs-string">"{}"</span>, error),
+            };
+        }
+    </code></pre>
+    <blockquote>
+    <p>Note: The todo!() macro simply indicates temporarily unfinished code, this way we can just the rest of the code without complaints.   </p>
+    </blockquote>
+    <h3 id="exit">Exit</h3>
+    <p>Exit is straightforward to implmement, we&#39;ll simply print out our exit message and break out of the loop.</p>
+    <pre><code class="lang-rust"><span class="hljs-string">"exit"</span> =&gt; {
+        prompt.exit_message()<span class="hljs-comment">;</span>
+        break<span class="hljs-comment">;</span>
+    }
+    </code></pre>
+    <h3 id="clear">Clear</h3>
+    <p>For clear, we simply have to add the case and reuse our clear code from the beginning of our code.</p>
+    <pre><code class="lang-rust"><span class="hljs-string">"clear"</span> =&gt; {  
+        crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect(<span class="hljs-string">"Failed to clear terminal"</span>);
+        crossterm::execute!(stdout(), cursor::MoveTo(0, 0)).expect(<span class="hljs-string">"Failed to move cursor to top"</span>);
+    },
+    </code></pre>
+    <h3 id="cd">cd</h3>
+    <p>The change of direction command is going to take a bit more thought. Here, wer&#39;re going to cover the &quot;cd&quot; (no args), &quot;cd {dir}&quot;, and &quot;cd -&quot; cases.</p>
+    <p>First, lets tackle the &quot;cd&quot; and &quot;cd {dir}&quot; cases. These two cases are the easiest to implement since we don&#39;t have to consider any previous states of the system. 
+    We can look at the next element ( our directory argument in this case ) without moving the iterator through the peek() function.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">let</span> <span class="hljs-keyword">new</span><span class="hljs-number">_</span>dir = args.peekable().peek().unwrap();
+    </code></pre>
+    <blockquote>
+    <p>Note that we have to make the iterator &quot;peekable&quot; before we are able to peek().
+    Now that we can check the new directory, we need to check if there is a new directory at all in the first place.
+    We could check if new_dir is None(), but Rust offers a simpler solution that does the same thing: map_or().
+    The map_or() method will return a default value if there is no contained value (peek() == None()), or apply a function to the contained function.
+    So, we while we could write</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">if</span> args.peekable.peek().is_some()       <span class="hljs-comment">// if not "None()"</span>
+    {
+        <span class="hljs-keyword">new</span><span class="hljs-type">_dir</span> = * args.peekable().peek().unwrap();
+    }
+    <span class="hljs-keyword">else</span>
+    {
+        <span class="hljs-keyword">new</span><span class="hljs-type">_dir</span> = <span class="hljs-string">"/"</span>;
+    }
+    </code></pre>
+    <p>we end up writing the equivalent</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">let</span> new_dir = args.peekable().peek().map_or(<span class="hljs-string">"/"</span>, |<span class="hljs-type">x</span>| <span class="hljs-type">*x</span>);
+    </code></pre>
+    </blockquote>
+    <p>Now that we have our directory, we have to make a new Path() object and use it to set the current directory using the env::set_current_dir() method.</p>
+    <pre><code class="lang-rust">let <span class="hljs-keyword">new</span><span class="hljs-type">_path</span> = Path:<span class="hljs-type"></span>:<span class="hljs-keyword">new</span><span class="hljs-type"></span>(<span class="hljs-keyword">new</span><span class="hljs-type">_dir</span>);
+    env:<span class="hljs-type"></span>:set_current_dir(&amp;<span class="hljs-keyword">new</span><span class="hljs-type">_path</span>);
+    </code></pre>
+    <p>Since env::set_current_dir returns a Result&lt;()&gt; object, we can use the same strategy as we did earlier with the command execution to make sure we alert the user gracefully if they gave us an invalid directory.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> <span class="hljs-built_in">Err</span>(<span class="hljs-keyword">error</span>) = env::set_current_dir(&amp;new_path) { eprint!(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">error</span>); }
+    </code></pre>
+    <p>Finally, we need to handle the &quot;cd -&quot; case. First, we need to create a prev_path variable to keep track of our previous directory. We can declare it before our loop.</p>
+    <pre><code class="lang-rust">let mut prev_path : String = prompt.path.clone()
+                                            .into_os_string()
+                                            .into_string()
+                                            .unwrap();
+    </code></pre>
+    <blockquote>
+    <p>Note that we&#39;re not just copying over the value and type casting it, we&#39;re &quot;cloning&quot; it. Because of Rust&#39;s borrowing system, we&#39;d be borrowing the ownership of the prompt.path buffer and changing it. This would be equivalent to copying a reference in C++. We only want the value, so we&#39;re going to &quot;clone&quot; it so we have a variable exactly like our prompt.path variable that we can work with.   </p>
+    </blockquote>
+    <p>Within our cd case handler, lets set the new path according to whether our new directory is &quot;-&quot; or not, and lets update the prev_path at the very end.</p>
+    <pre><code class="lang-rust"><span class="hljs-string">"cd"</span> =&gt; {
+        let <span class="hljs-keyword">new</span><span class="hljs-type">_dir</span> = args.peekable().peek().map_or(<span class="hljs-string">"/"</span>, |x| *x);
+        let prev_dir = prev_path.clone();                
+        let <span class="hljs-keyword">new</span><span class="hljs-type">_path</span> = match <span class="hljs-keyword">new</span><span class="hljs-type">_dir</span> 
+        {
+            <span class="hljs-string">"-"</span> =&gt; Path:<span class="hljs-type"></span>:<span class="hljs-keyword">new</span><span class="hljs-type"></span>(&amp;prev_dir),
+            <span class="hljs-literal">_</span> =&gt; Path:<span class="hljs-type"></span>:<span class="hljs-keyword">new</span><span class="hljs-type"></span>(&amp;<span class="hljs-keyword">new</span><span class="hljs-type">_dir</span>), 
+        }; 
+
+        prev_path = prompt.path.clone().into_os_string().into_string().unwrap();
+        <span class="hljs-keyword">if</span> let Err(error) = env:<span class="hljs-type"></span>:set_current_dir(&amp;<span class="hljs-keyword">new</span><span class="hljs-type">_path</span>) { eprint!(<span class="hljs-string">"{}"</span>, error); }
+    },
+    </code></pre>
+    <blockquote>
+    <p>Note we have to make a new variable, prev_dir, in order to create the new path with the previous directory. This goes back to the borrow/ownership system in Rust. The path constructor requires full ownership of the variable, something we cannot offer it if we give it the prev_path variable. So, again, we clone our prev_path so we can use it to create a new path instance.    </p>
+    </blockquote>
+    <h2 id="input-output-redirection">Input / Output redirection</h2>
+    <p>To finish up our shell, we&#39;re going to add output redirection and piping.</p>
+    <h3 id="output-redirection">Output redirection</h3>
+    <p>Lets first try and see if we need to redirect our output. Lets create a vector from our iterator and find the position of the &#39;&gt;&quot; character through the .position character.</p>
+    <pre><code class="lang-rust">let args_vec = args.clone().<span class="hljs-symbol">collect:</span><span class="hljs-symbol">:&lt;Vec&lt;&amp;str&gt;&gt;</span>();
+    let output_position = args.position(|x| x == <span class="hljs-string">"&gt;"</span>);
+    </code></pre>
+    <p>Unfortunately, the .position() method moved our iterator. So, lets create a new iterator to represent our new-found arguments based on the args_vec and our &quot;&gt;&quot; character position / existance.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">let</span> <span class="hljs-attr">args_vec</span> = args.clone().collect::&lt;Vec&lt;&amp;str&gt;&gt;();
+    <span class="hljs-keyword">let</span> <span class="hljs-attr">output_position</span> = args.position(|x| <span class="hljs-attr">x</span> == <span class="hljs-string">"&gt;"</span>);
+    <span class="hljs-keyword">let</span> <span class="hljs-attr">has_output</span> = (output_position != None) &amp;&amp; (output_position.unwrap() &lt; args_vec.len()); 
+
+    <span class="hljs-keyword">let</span> <span class="hljs-attr">args_it</span> = <span class="hljs-keyword">if</span> has_output { args_vec[<span class="hljs-number">0</span>.. output_position.unwrap()].iter() } <span class="hljs-keyword">else</span> { args_vec.iter() };
+    </code></pre>
+    <p>The .position argument returns an Option objet to us, so we can use that option to determine if we have a given output / output file. Afterwards, we can use the boolean we got to determine if we&#39;re going to need an iterator of the entire arguments vector, or just a sub-array of our vector.</p>
+    <p>Now we have the ability to check if we need to do file output redirection, and which file we will be redirecting our output to.</p>
+    <p>Next, if we have file output, we need to create a file and set the stdout to be that file.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">let</span> <span class="hljs-literal">stdout</span>: <span class="hljs-type">Stdio</span>; 
+    <span class="hljs-keyword">if</span> has_output 
+
+        <span class="hljs-keyword">let</span> file = <span class="hljs-type">File</span>::create(args_vec[output_position.unwrap()+<span class="hljs-number">1</span>])
+                        .expect(<span class="hljs-string">"Failed to create file"</span>);
+        <span class="hljs-literal">stdout</span> = <span class="hljs-type">Stdio</span>::<span class="hljs-keyword">from</span>(file);
+    }
+    <span class="hljs-keyword">else</span>
+    {
+        <span class="hljs-literal">stdout</span> = <span class="hljs-type">Stdio</span>::inherit(); // our child <span class="hljs-literal">stdout</span> <span class="hljs-keyword">is</span> going to inherit our parent <span class="hljs-literal">stdout</span>, which <span class="hljs-keyword">in</span> this <span class="hljs-keyword">case</span> <span class="hljs-keyword">is</span> just the regular terminal <span class="hljs-literal">stdout</span>
+    }
+    </code></pre>
+    <p>The Stdio struct allows us to define the Stdio io of a child process when passed in to the stdin, stdout, or stderr methods of our Command struct. In this case, Stdio::from(file) converts our file to an Stdio object.</p>
+    <p>So, all that&#39;s missing now is to add the stdout() method set our child output to our new file.</p>
+    <pre><code class="lang-rust">let child = Command::<span class="hljs-keyword">new</span>(cmd)
+        .<span class="hljs-keyword">args</span>(args_it)
+        .stdin(stdin)
+        .stdout(stdout)
+        .spawn();
+    </code></pre>
+    <h3 id="piping">Piping</h3>
+    <p>All that is left to do is add the piping functionality to our shell. This is going to require us to add some input redirection, and another case for our output redirection.</p>
+    <p>First, we&#39;re going to have to first slit up our piped commands using the &#39;|&#39; character. Lets create a new peekable iterator that contains all of our commands and their arguments. </p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">loop</span>
+    {
+        <span class="hljs-params">...</span>
+        <span class="hljs-keyword">let</span> mut cmds = input.trim().split(<span class="hljs-string">" | "</span>).peekable();
+        <span class="hljs-params">...</span>
+    }
+    </code></pre>
+    <blockquote>
+    <p>Note: this is going to be where or old cmd iterator was initiated 
+    Further, lets loop through and run every command we&#39;re given, and initiate the args and cmd variables based on our current command:
+    ``` rust
+    let mut cmds = input.trim().split(&quot; | &quot;).peekable();
+    while let Some(cmd) = cmds.next()
+    {
+        let mut args = cmd.trim().split_whitespace();
+        let cmd = args.next().unwrap();  </p>
+    </blockquote>
+    <pre><code>match <span class="hljs-keyword">cmd</span><span class="bash"> 
+    </span>{
+    ...
+    }
+    </code></pre><p>}</p>
+    <pre><code>&gt; <span class="hljs-type">The</span> <span class="hljs-string">"while let Some(cmd) = cmds.next() {}"</span> <span class="hljs-keyword">is</span> a common pattern <span class="hljs-keyword">in</span> <span class="hljs-type">Rust</span>, especially <span class="hljs-keyword">when</span> <span class="hljs-keyword">using</span> iterators. <span class="hljs-type">You</span> can think <span class="hljs-keyword">of</span> it <span class="hljs-keyword">as</span> the <span class="hljs-type">Rust</span> equivalent to C++'s <span class="hljs-string">"while cmds.next(){}"</span> 
+
+    <span class="hljs-type">Now</span>, lets get into our default command handler <span class="hljs-keyword">and</span> pipe our <span class="hljs-literal">stdout</span>. <span class="hljs-type">We</span> can achieve this by just adding new condition <span class="hljs-keyword">when</span> setting the <span class="hljs-literal">stdout</span>: <span class="hljs-keyword">if</span> there <span class="hljs-keyword">is</span> another piped command left, we pipe our <span class="hljs-literal">stdout</span>. <span class="hljs-type">This</span> can be done by simply calling <span class="hljs-type">Stdout</span>::piped();
+    ``` rust
+    <span class="hljs-keyword">let</span> <span class="hljs-literal">stdout</span>: <span class="hljs-type">Stdio</span>; 
+    <span class="hljs-keyword">if</span> has_output 
+    {
+        <span class="hljs-keyword">let</span> file = <span class="hljs-type">File</span>::create(args_vec[output_position.unwrap()+<span class="hljs-number">1</span>])
+                        .expect(<span class="hljs-string">"Failed to create file"</span>);
+        <span class="hljs-literal">stdout</span> = <span class="hljs-type">Stdio</span>::<span class="hljs-keyword">from</span>(file);
+    }
+    <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> cmds.peek().is_some()
+    {
+        <span class="hljs-literal">stdout</span> = <span class="hljs-type">Stdio</span>::piped();
+    }
+    <span class="hljs-keyword">else</span> 
+    {
+        <span class="hljs-literal">stdout</span> = <span class="hljs-type">Stdio</span>::inherit();
+    };
+    </code></pre><p>Now, all that&#39;s left to handle is the input redirection. In order to pass the output of the previous command to the input of the current command, we need to know what the previous command is. So in our outer loop, before we enter our inner loop, lets declare the prev_cmd variable.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">loop</span>
+    {
+        <span class="hljs-params">...</span>
+        <span class="hljs-keyword">let</span> prev_cmd = <span class="hljs-literal">None</span>;
+        <span class="hljs-keyword">while</span> <span class="hljs-keyword">let</span> Some(cmd) = cmds.next() {}
+        <span class="hljs-params">...</span>
+    }
+    </code></pre>
+    <p>Lets first consider the clear and cd cases. In both of these cases, there&#39;s no output. So, we can just set prev_cmd = None in both of these cases.</p>
+    <pre><code class="lang-rust">...
+    <span class="hljs-string">"clear"</span> =&gt; {  
+        crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect(<span class="hljs-string">"Failed to clear terminal"</span>);
+        crossterm::execute!(stdout(), cursor::MoveTo(<span class="hljs-number">0</span>, <span class="hljs-number">0</span>)).expect(<span class="hljs-string">"Failed to move cursor to top"</span>);
+
+        prev_cmd = None;
+    },
+    <span class="hljs-string">"cd"</span> =&gt; {
+        <span class="hljs-keyword">let</span> new_dir = args.peekable().peek().map_or(<span class="hljs-string">"/"</span>, |x| *x);
+        <span class="hljs-keyword">let</span> prev_dir = prev_path.<span class="hljs-keyword">clone</span>();                
+        <span class="hljs-keyword">let</span> new_path = match new_dir 
+        {
+            <span class="hljs-string">"-"</span> =&gt; Path::new(&amp;prev_dir),
+            _ =&gt; Path::new(&amp;new_dir), 
+        }; 
+
+        prev_path = prompt.path.<span class="hljs-keyword">clone</span>().into_os_string().into_string().unwrap();
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> Err(error) = env::set_current_dir(&amp;new_path) { eprint!(<span class="hljs-string">"{}"</span>, error); }
+
+        prev_cmd = None;
+    },
+    ...
+    </code></pre>
+    <p>Now, lets set the stdin for the default case. 
+    We can use our trusty old map_or() method to see if there is a previous command, and if there is, lets get the stdout of that command. Otherwise, we&#39;ll just inherit the stdin from the parent ( the standard terminal stdin )
+    Next, lets set it as our process&#39; stdin by passing this new stdin to our Command constructor. </p>
+    <pre><code class="lang-rust">let child = Command::<span class="hljs-keyword">new</span>(cmd)
+        .<span class="hljs-keyword">args</span>(args_it)
+        .stdin(stdin)
+        .stdout(stdout)
+        .spawn();
+    </code></pre>
+    <p>Since we no longer need to wait for every command and we need to collect the output of this current command for later use, we can edit our error handling to set the prev_cmd for us.</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">match</span> child
+    {
+        <span class="hljs-literal">Ok</span>(child) =&gt; { prev_cmd = <span class="hljs-literal">Some</span>(child); },
+        <span class="hljs-literal">Err</span>(error) =&gt; { 
+            prev_cmd = <span class="hljs-literal">None</span>; 
+            eprintln!(<span class="hljs-string">"{}"</span>, error); 
+        }                    
+    };
+    </code></pre>
+    <p>Finally, we can handle the last command once we leave our inner loop</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> <span class="hljs-literal">Some</span>(<span class="hljs-keyword">mut</span> final_cmd) = prev_cmd { final_cmd.wait(); }
+    </code></pre>
+    <p>Now if you run &quot;cargo run&quot;, you&#39;ll have your own Rust shell!
+    If you want to learn more, I&#39;ve included a list of references at the very bottom.</p>
+    <p>Here&#39;s our final result:</p>
+    <p><strong>main.rs</strong>:</p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">use</span> crossterm::{terminal, terminal::ClearType, cursor};
+    <span class="hljs-keyword">use</span> std::io::{stdin, stdout, Write};
+    <span class="hljs-keyword">use</span> std::process::{Command, Child, Stdio};
+    <span class="hljs-keyword">use</span> std::path::Path;
+    <span class="hljs-keyword">use</span> std::env;
+    <span class="hljs-keyword">use</span> std::fs::File;
+
+    <span class="hljs-keyword">mod</span> prompt;
+    <span class="hljs-keyword">use</span> crate::prompt::Prompt;
+
+    <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">main</span></span>() 
+    {
+        crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect(<span class="hljs-string">"Failed to clear terminal"</span>);
+        crossterm::execute!(stdout(), cursor::MoveTo(<span class="hljs-number">0</span>, <span class="hljs-number">0</span>)).expect(<span class="hljs-string">"Failed to move cursor to top"</span>);
+        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> prompt = Prompt::new();
+        <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> prev_path : <span class="hljs-built_in">String</span> = prompt.path.clone()
+                                                .into_os_string()
+                                                .into_string()
+                                                .unwrap();
+        <span class="hljs-keyword">loop</span> {
+            prompt.update();
+            prompt.print();
+            stdout().flush().expect(<span class="hljs-string">"flush failed!"</span>);        
+
+            <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> input = <span class="hljs-built_in">String</span>::new();    
+            stdin().read_line(&amp;<span class="hljs-keyword">mut</span> input).expect(<span class="hljs-string">"Did not enter a valid string"</span>);
+
+            <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> cmds = input.trim().split(<span class="hljs-string">" | "</span>).peekable();
+            <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> prev_cmd = <span class="hljs-literal">None</span>;
+
+            <span class="hljs-keyword">while</span> <span class="hljs-keyword">let</span> <span class="hljs-literal">Some</span>(cmd) = cmds.next()
+            {
+                <span class="hljs-keyword">let</span> <span class="hljs-keyword">mut</span> args = cmd.trim().split_whitespace();
+                <span class="hljs-keyword">let</span> cmd = args.next().unwrap();  
+
+                <span class="hljs-keyword">match</span> cmd 
+                {
+                    <span class="hljs-string">"exit"</span> =&gt; {
+                        prompt.exit_message();
+                        <span class="hljs-keyword">return</span>;
+                    },
+                    <span class="hljs-string">"clear"</span> =&gt; {  
+                        crossterm::execute!(stdout(), terminal::Clear(ClearType::All)).expect(<span class="hljs-string">"Failed to clear terminal"</span>);
+                        crossterm::execute!(stdout(), cursor::MoveTo(<span class="hljs-number">0</span>, <span class="hljs-number">0</span>)).expect(<span class="hljs-string">"Failed to move cursor to top"</span>);
+
+                        prev_cmd = <span class="hljs-literal">None</span>;
+                    },
+                    <span class="hljs-string">"cd"</span> =&gt; {
+                        <span class="hljs-keyword">let</span> new_dir = args.peekable().peek().map_or(<span class="hljs-string">"/"</span>, |x| *x);
+                        <span class="hljs-keyword">let</span> prev_dir = prev_path.clone();                
+                        <span class="hljs-keyword">let</span> new_path = <span class="hljs-keyword">match</span> new_dir 
+                        {
+                            <span class="hljs-string">"-"</span> =&gt; Path::new(&amp;prev_dir),
+                            _ =&gt; Path::new(&amp;new_dir), 
+                        }; 
+
+                        prev_path = prompt.path.clone().into_os_string().into_string().unwrap();
+                        <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> <span class="hljs-literal">Err</span>(error) = env::set_current_dir(&amp;new_path) { eprint!(<span class="hljs-string">"{}"</span>, error); }
+
+                        prev_cmd = <span class="hljs-literal">None</span>;
+                    },
+                    _ =&gt; {
+                        <span class="hljs-comment">// set input</span>
+                        <span class="hljs-keyword">let</span> stdin = prev_cmd
+                                    .map_or(
+                                        Stdio::inherit(), 
+                                        |output: Child| Stdio::from(output.stdout.unwrap())
+                                    );
+
+                        <span class="hljs-comment">// set output</span>
+                        <span class="hljs-keyword">let</span> args_vec = args.clone().collect::&lt;<span class="hljs-built_in">Vec</span>&lt;&amp;<span class="hljs-keyword">str</span>&gt;&gt;();
+                        <span class="hljs-keyword">let</span> output_position = args.position(|x| x == <span class="hljs-string">"&gt;"</span>);
+                        <span class="hljs-keyword">let</span> has_output = (output_position != <span class="hljs-literal">None</span>) &amp;&amp; (output_position.unwrap() &lt; args_vec.len()); 
+
+                        <span class="hljs-keyword">let</span> args_it = <span class="hljs-keyword">if</span> has_output { args_vec[<span class="hljs-number">0</span>.. output_position.unwrap()].iter() } <span class="hljs-keyword">else</span> { args_vec.iter() };
+
+                        <span class="hljs-keyword">let</span> stdout: Stdio; 
+                        <span class="hljs-keyword">if</span> has_output 
+                        {
+                            <span class="hljs-keyword">let</span> file = File::create(args_vec[output_position.unwrap()+<span class="hljs-number">1</span>])
+                                            .expect(<span class="hljs-string">"Failed to create file"</span>);
+                            stdout = Stdio::from(file);
+                        }
+                        <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> cmds.peek().is_some()
+                        {
+                            stdout = Stdio::piped();
+                        }
+                        <span class="hljs-keyword">else</span> 
+                        {
+                            stdout = Stdio::inherit();
+                        };
+
+                        <span class="hljs-keyword">let</span> child = Command::new(cmd)
+                            .args(args_it)
+                            .stdin(stdin)
+                            .stdout(stdout)
+                            .spawn();
+
+                        <span class="hljs-keyword">match</span> child
+                        {
+                            <span class="hljs-literal">Ok</span>(child) =&gt; { prev_cmd = <span class="hljs-literal">Some</span>(child); },
+                            <span class="hljs-literal">Err</span>(error) =&gt; { 
+                                prev_cmd = <span class="hljs-literal">None</span>; 
+                                eprintln!(<span class="hljs-string">"{}"</span>, error); 
+                            }                    
+                        };
+                    }
+                }
+            }
+            <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> <span class="hljs-literal">Some</span>(<span class="hljs-keyword">mut</span> final_cmd) = prev_cmd { final_cmd.wait(); }
+        }
+    }
+    </code></pre>
+    <p><strong>prompt.rs</strong></p>
+    <pre><code class="lang-rust"><span class="hljs-keyword">use</span> std::env;
+    <span class="hljs-keyword">use</span> std::path::PathBuf;
+
+    <span class="hljs-keyword">use</span> chrono::{DateTime, Local};
+    <span class="hljs-keyword">use</span> colored::*;
+
+    <span class="hljs-keyword">pub</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">Prompt</span></span>
+    {
+        user: <span class="hljs-built_in">String</span>,
+        user_time: DateTime&lt;Local&gt;,
+        <span class="hljs-keyword">pub</span> path: PathBuf,
+    }
+
+    <span class="hljs-keyword">impl</span> Prompt
+    {
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">new</span></span>() -&gt; <span class="hljs-keyword">Self</span>
+        {
+            <span class="hljs-keyword">Self</span> 
+            {
+                user : env::var(<span class="hljs-string">"USER"</span>).expect(<span class="hljs-string">"$USER variable not declared"</span>),    
+                user_time : Local::now(),
+                path : env::current_dir().expect(<span class="hljs-string">"Failed to get current directory"</span>), 
+            }
+        }
+
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">print</span></span>(&amp;<span class="hljs-keyword">self</span>)
+        {
+            <span class="hljs-keyword">let</span> formatted_time = <span class="hljs-built_in">format!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">self</span>.user_time.format(<span class="hljs-string">"%d/%m %T"</span>));
+            <span class="hljs-keyword">let</span> formatted_path = <span class="hljs-built_in">format!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-keyword">self</span>.path.display());
+            <span class="hljs-built_in">print!</span>(<span class="hljs-string">"{0} {1}:{2}$ "</span>, formatted_time.green(), <span class="hljs-keyword">self</span>.user.green(), formatted_path.blue()); 
+        }   
+
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">update</span></span>(&amp;<span class="hljs-keyword">mut</span> <span class="hljs-keyword">self</span>)
+        {
+            <span class="hljs-comment">// update time</span>
+            <span class="hljs-keyword">self</span>.user_time = Local::now();
+
+            <span class="hljs-comment">// update path </span>
+            <span class="hljs-keyword">self</span>.path = env::current_dir().expect(<span class="hljs-string">"Failed to get current directory"</span>); 
+        }
+
+        <span class="hljs-keyword">pub</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">exit_message</span></span>(&amp;<span class="hljs-keyword">self</span>)
+        {
+            <span class="hljs-built_in">println!</span>(<span class="hljs-string">"{}"</span>, <span class="hljs-string">"Now exiting shell...\nGoodbye"</span>.red());
+        }
+    }
+    </code></pre>
+    <p><strong>cargo.toml</strong></p>
+    <pre><code><span class="hljs-section">[package]</span>
+    <span class="hljs-attr">name</span> = <span class="hljs-string">"aggie_shell"</span>
+    <span class="hljs-attr">version</span> = <span class="hljs-string">"0.1.0"</span>
+    <span class="hljs-attr">edition</span> = <span class="hljs-string">"2021"</span>
+
+    <span class="hljs-comment"># See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html</span>
+    <span class="hljs-section">
+    [dependencies]</span>
+    <span class="hljs-attr">chrono</span> = <span class="hljs-string">"0.4.23"</span>
+    <span class="hljs-attr">colored</span> = <span class="hljs-string">"2"</span>
+    <span class="hljs-attr">crossterm</span> = <span class="hljs-string">"0.23"</span>
+    </code></pre><h2 id="sources">Sources</h2>
+    <p><a href="https://doc.rust-lang.org/std/index.html">Rust std library documentation</a><br><a href="https://doc.rust-lang.org/stable/rust-by-example/">Rust by example</a><br><a href="https://docs.rs/chrono/latest/chrono/">Chrono documentation</a><br><a href="https://docs.rs/colored/latest/colored/">Colored documentation</a><br><a href="https://docs.rs/crossterm/latest/crossterm/">Crossterm Documentation</a><br><a href="https://www.joshmcguigan.com/blog/build-your-own-shell-rust/">My Starting Point</a><br><a href="https://markdowntohtml.com/">Markdown to HTML Website</a>
+    <a href="https://github.com/sindresorhus/github-markdown-css">CSS Source</a></p>
+</body>
