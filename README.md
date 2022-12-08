@@ -766,5 +766,5 @@ crossterm = "0.23"
 [Colored documentation](https://docs.rs/colored/latest/colored/)    
 [Crossterm Documentation](https://docs.rs/crossterm/latest/crossterm/)   
 [My Starting Point](https://www.joshmcguigan.com/blog/build-your-own-shell-rust/)  
-[Markdown to HTML Website](https://markdowntohtml.com/)
+[Markdown to HTML Website](https://markdowntohtml.com/)  
 [CSS Source](https://github.com/sindresorhus/github-markdown-css)
